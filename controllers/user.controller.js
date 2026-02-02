@@ -42,12 +42,12 @@ export async function registerUserController(req, res) {
             otp_expiry: Date.now() + 10 * 60 * 1000, // 10 minutes from now
         });
         await user.save();        
-        const verifyEmail = await sendEmailFun({
-            sendTo:email,
-            subject:"Please verify your email",
-            text:``,
-            html:VerificationEmail(name, verifyCode),
-        })
+        await sendEmailFun(
+            email,
+            "Please verify your email",
+            ``,
+            VerificationEmail(name, verifyCode)
+        );
 
         const token = jwt.sign(
             { userId: user._id, email: user.email },
@@ -62,6 +62,55 @@ export async function registerUserController(req, res) {
             error: false,
         });
         
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || error,
+            error: true,
+        });
+    }
+}
+
+export async function verifyEmailController(req, res) {
+    try {
+       const { email, otp } = req.body;
+       const user = await UserModel.findOne({ email: email });
+
+       if (!user) {
+        return res.status(400).json({
+            success: false,
+            message: "User not found",
+            error: true,
+        });
+       }
+
+       const isCodeValid = user.otp === otp
+       const isCodeExpired = user.otp_expiry > Date.now();
+
+       if (isCodeValid && isCodeExpired) {
+        user.verify_email = true;
+        user.otp = null;
+        user.otp_expiry = null;
+        await user.save();
+        return res.status(200).json({
+            success: true,
+            message: "Email verified successfully",
+            error: false,
+        });
+       }else if (!isCodeValid) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid OTP code",
+            error: true,
+        });
+       } else {
+        return res.status(400).json({
+            success: false,
+            message: "OTP code has expired",
+            error: true,
+        });
+       }
+
     } catch (error) {
         return res.status(500).json({
             success: false,
