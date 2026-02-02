@@ -51,14 +51,12 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "order",
     }],
-    forget_password_otp: {
+    otp: {
         type: String,
-        default: null,
     },
-    forget_password_otp_expiry: {
+    otp_expiry: {
         type: Date,
-        default: null,
-    },
+    },  
     role: {
         type: String,
         enum: [ "USER", "ADMIN" ],

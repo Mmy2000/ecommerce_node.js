@@ -6,6 +6,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 import cookieParser from 'cookie-parser';
 import connectDB from './config/connectDB.js';
+import userRouter from './routes/user.route.js';
+
 
 const app = express();
 app.use(cors());
@@ -20,6 +22,8 @@ const PORT = process.env.PORT || 5000;
 app.get('/', (req, res) => {
     res.json({ message: 'E-commerce API is running' + PORT });
 });
+
+app.use('/api/users', userRouter);
 
 connectDB().then(() => {
     app.listen(PORT, () => {
