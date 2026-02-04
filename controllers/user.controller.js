@@ -4,6 +4,8 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import VerificationEmail from "../helpers/verifyEmailTemplate.js";
 import sendEmailFun from "../config/sendEmail.js";
+import generatedAccessToken from "../utils/generatedAccessToken.js";
+import generatedRefreshToken from "../utils/generatedRefreshToken.js";
 
 
 export async function registerUserController(req, res) {
@@ -117,5 +119,107 @@ export async function verifyEmailController(req, res) {
             message: error.message || error,
             error: true,
         });
+    }
+}
+
+
+export async function loginUserController(req, res) {
+    try {
+        const { email, password } = req.body;
+        const user = await UserModel.findOne({ email: email });
+
+        if (!user) {
+            return res.status(400).json({
+                success: false,
+                message: "User not found",
+                error: true,
+            });
+        }
+
+        if (user.status !== "active") {
+            return res.status(400).json({
+                success: false,
+                message: "Your account has been deactivated. Please contact support.",
+                error: true,
+            });
+        }
+
+        if (!user.verify_email) {
+            return res.status(400).json({
+                success: false,
+                message: "Please verify your email before logging in",
+                error: true,
+            });
+        }
+
+        const isPasswordMatch = await bcrypt.compare(password, user.password);
+        if (!isPasswordMatch) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid credentials",
+                error: true,
+            });
+        }
+
+        const accessToken = await generatedAccessToken(user._id);
+        const refreshToken = await generatedRefreshToken(user._id);
+
+        const updateUser = await UserModel.findByIdAndUpdate(user?._id,{
+            last_login_date : new Date()
+        })
+
+        const cookiesOption = {
+            httpOnly : true,
+            secure:true,
+            sameSite:"None"
+        }
+
+        res.cookie("accessToken" , accessToken , cookiesOption)
+        res.cookie("refreshToken" , refreshToken , cookiesOption)
+
+        return res.json({
+            message : "Login successfully" , 
+            error : false,
+            success : true,
+            data : {
+                accessToken,
+                refreshToken
+            }
+        })
+    } catch (error) {
+        return res.status(500).json({
+            message:error.message || error,
+            error:true,
+            success:false
+        })
+    }
+}
+
+export async function logoutController(req,res) {
+    try {
+        const userId = req.userId
+        const cookiesOption = {
+            httpOnly : true,
+            secure:true,
+            sameSite:"None"
+        }
+        res.clearCookie("accessToken",cookiesOption)
+        res.clearCookie("refreshToken",cookiesOption)
+
+        const removeRefreshToken = await UserModel.findByIdAndUpdate(userId , {
+            refresh_token : ""
+        })
+
+        return res.json({
+            message : "logout successfully",
+            error:false,
+            success:true
+        })
+    } catch (error) {
+        return res.status(500).json({
+            message:error.message || error,
+            error:true,
+            success:false
+        })
     }
 }
